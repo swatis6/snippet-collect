@@ -1,5 +1,5 @@
 ---
-test-name: 'A-off' #FOlder organization (Tx can override in 'begin')
+test-name: 'HWTest' #FOlder organization (Tx can override in 'begin')
 
 rx:
   rx-freq-mhz: 1250 #BB60 tuneing (Tx can override in 'begin')
@@ -12,9 +12,9 @@ rx:
 
 # they tell me the smallest length is 1 sample = 25 ns at decimation 1
 snippet:
-  wait:     {enabled: false, length-sec: 0.001, interval-sec: 2} #during initial wait time (after 'begin')
-  tx:       {enabled: true, length-sec: 0.001, interval-sec: 1} #during tx ('start_tx' -> 'end_tx')
-  recovery: {enabled: true, length-sec: 0.001, interval-sec: 5} #during recovery time ('end_tx' -> next 'start_tx'/'end')
+  wait:     {enabled: true, length-sec: 0.0005, interval-sec: 3} #during initial wait time (after 'begin')
+  tx:       {enabled: true, length-sec: 0.005, interval-sec: 1} #during tx ('start_tx' -> 'end_tx')
+  recovery: {enabled: true, length-sec: 0.0005, interval-sec: 2} #during recovery time ('end_tx' -> next 'start_tx'/'end')
 
 server:
   host: '127.0.0.1' #127.0.0.1 = localhost, 0.0.0.0 = other machines
@@ -26,5 +26,5 @@ output:
 max-freq-mhz: 6000 #stay safe
 
 # mock: false = real hardware, true = simulated BB60 w no hardware. Use trigger_mock_tx.py to test.
-mock: true
+mock: false
 debug-mode: false

@@ -21,7 +21,7 @@ server:
   port: 5050 #arbitrary
 
 output:
-  dir: 'results' #snippets go under results/<test>/<state>/, and xlsx log under results/<test>/
+  dir: 'results' #snippets go under results/<test>/<state>/, and csv log under results/<test>/
 
 max-freq-mhz: 6000 #stay safe
 

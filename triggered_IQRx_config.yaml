@@ -25,6 +25,5 @@ output:
 
 max-freq-mhz: 6000 #stay safe
 
-# mock: false = real hardware, true = simulated BB60 w no hardware. Use trigger_mock_tx.py to test.
-mock: false
+# mock: false = real hardware, true = simulated BB60 w no hardware. 
 debug-mode: false

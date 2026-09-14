@@ -1,5 +1,5 @@
 ---
-test-name: 'A-off' #sent to the Rx server in 'begin' (folder/file naming)
+test-name: 'TestRun' #sent to the Rx server in 'begin' (folder/file naming)
 tx-freq-mhz: 625 #f0
 rx-freq-mhz: 1250 #what the Rx should tune to (again sent to the server for file names)
 

@@ -12,7 +12,7 @@ rx:
 
 # they tell me the smallest length is 1 sample = 25 ns at decimation 1
 snippet:
-  wait:     {enabled: true, length-sec: 0.001, interval-sec: 2} #during initial wait time (after 'begin')
+  wait:     {enabled: false, length-sec: 0.001, interval-sec: 2} #during initial wait time (after 'begin')
   tx:       {enabled: true, length-sec: 0.001, interval-sec: 1} #during tx ('start_tx' -> 'end_tx')
   recovery: {enabled: true, length-sec: 0.001, interval-sec: 5} #during recovery time ('end_tx' -> next 'start_tx'/'end')
 

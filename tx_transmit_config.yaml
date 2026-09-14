@@ -1,0 +1,26 @@
+---
+test-name: 'A-off' #sent to the Rx server in 'begin' (folder/file naming)
+tx-freq-mhz: 625 #f0
+rx-freq-mhz: 1250 #what the Rx should tune to (again sent to the server for file names)
+
+main: #main signal- wait, then for each power [tx, recovery]
+  powers-db: [2, 4, 6] #one tx segment per power level
+  wait-sec: 5 #pause at the very beginning (Rx 'wait' state)
+  tx-sec: 10 #seconds of transmit per power (Rx 'tx' state)
+  recovery-sec: 8 #recovery pause after each tx (Rx 'recovery' state)
+
+second-signal: #for 2f0 on a different antenna, constant through the whole run
+  enabled: false #true needs a second signal source (2nd VSG on its own SCPI port)
+  freq-mult: 2 #second signal freq = 2f0
+  port: 5025 #SCPI port of the second VSG (default is on 5024)
+  power-db: 0
+
+server:
+  host: '127.0.0.1' # IQ server location
+  port: 5050
+
+output:
+  dir: 'results' # tx log -> results/<test>/<test>_tx_log.xlsx
+
+mock-vsg: true # true for test w no hardware (both VSGs mocked)
+debug-mode: false

@@ -85,6 +85,7 @@ python waterfall.py results/HWTest/625/tx-2/625Tx1_1250Tx2_1250Rx_HWTest_4-*.iq 
 
 ## Output Organization
 
+```
 results/<test>/
   <test>_rx_log.csv ---> command-receive + capture times (Rx)
   <test>_tx_log.csv ---> tx segment start/end times (Tx)
@@ -93,3 +94,4 @@ results/<test>/
     wait/<Tx1>Tx1_<Tx2>Tx2_<Rx>Rx_<test>_<n><stamp>.iq (+ .xml)
     tx-<power>/...
     recovery-<power>/...
+```

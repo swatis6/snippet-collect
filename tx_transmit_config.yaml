@@ -1,26 +1,34 @@
 ---
-test-name: 'HWTest' #sent to the Rx server in 'begin' (folder/file naming)
-tx-freq-mhz: 625 #f0
-rx-freq-mhz: 1250 #what the Rx should tune to (again sent to the server for file names)
+#Test & transmit settings. Rx only has IQ capture things now.
+#File naming: [TestName]/[Tx1]/[state]/[Tx1]Tx1_[Tx2]Tx2_[Rx]Rx_[TestName]_[Snippet#]_[Spike Timestamp].iq/.xml
 
-main: #main signal- wait, then for each power [tx, recovery]
-  powers-db: [0, 2, 4, 6] #one tx segment per power level
-  wait-sec: 6 #pause at the very beginning (Rx 'wait' state)
-  tx-sec: 10 #seconds of transmit per power (Rx 'tx' state)
-  recovery-sec: 8 #recovery pause after each tx (Rx 'recovery' state)
+test-name: 'HWTest' #sent to Rx in 'begin' (folder/file naming)
 
-second-signal: #for 2f0 on a different antenna, constant through the whole run
-  enabled: true #true needs a second signal source (2nd VSG on its own SCPI port)
-  freq-mult: 2 #second signal freq = 2f0
-  port: 5025 #SCPI port of the second VSG (default is on 5024)
+tx1-freqs-mhz: [625, 700, 850] #Tx1 SWEEP w/ one full begin -> powers -> end p/ freq
+tx2-freq-mhz: 1250 #Tx2 constant second-signal freq. turn off below.
+rx-freq-mhz: 1250 #Rx freq where IQ is captured.)
+
+main: #wait, then for each power tx -> recovery
+  powers-db: [0, 2, 4, 6]
+  wait-sec: 6 #Rx 'wait' state
+  tx-sec: 10 #Rx 'tx' state
+  recovery-sec: 8 #Rx 'recovery' state
+
+second-signal: #Tx2 on a different antenna
+  enabled: true #false gives "NoTx2" in filenames
   power-db: 0
+  port: 5025 #SCPI port of the 2nd VSG (main VSG is on 5024)
+
+waterfall:
+  enabled: true #live waterfall per Tx1 freq but have matplotlib wherever yoou're running Rx script
+  #save: true #not yet a thing.
 
 server:
-  host: '127.0.0.1' # IQ server location
+  host: '127.0.0.1' #IQ server location
   port: 5050
 
 output:
-  dir: 'results' # tx log -> results/<test>/<test>_tx_log.xlsx
+  dir: 'results' #tx log -> results/<test>/<test>_tx_log.csv
 
-mock-vsg: false # true for test w no hardware (both VSGs mocked)
+mock-vsg: true #true = no hardware (VSGs mocked). --mock / --no-mock
 debug-mode: false

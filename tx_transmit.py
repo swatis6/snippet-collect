@@ -1,22 +1,5 @@
-# Tx transmit - main (f0) signal multi-power sweep & sometimes a constant 2f0 signal.
-#
-# Timeline: 
-
-# send 'begin' -> wait-sec (Rx 'wait') 
-# for each power: 
-#   set power, 
-#   RF on, 
-#   send 'start_tx' (Rx 'tx'), 
-#   transmit tx-sec, 
-#   RF off, 
-#   send 'end_tx' (Rx 'recovery'),
-#   recovery-sec 
-# send 'end'. 
-# 
-# A second signal at 2*f0 can be left on all the way through
-# Logs times and such to a csv.
-
 from datetime import datetime as dt
+import argparse
 import json
 import os
 import socket
@@ -29,11 +12,10 @@ from util import signalhound as sh
 from drivers.signalhound import vsg60, vsg60_mock
 
 
-CONFIG_FILE = 'tx_transmit_config.yaml'
-TX_HEADER = ['Power (dB)', 'Tx Freq (MHz)', 'Start Time', 'End Time', 'Duration (s)']
+TX_HEADER = ['Tx1 Freq (MHz)', 'Tx2 Freq (MHz)', 'Power (dB)', 'Start Time', 'End Time', 'Duration (s)']
 
 
-def connect_server(host, port, retries=20): #open the link to the IQ server, retry while it comes up
+def connect_server(host, port, retries=20):
     for i in range(retries):
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -46,82 +28,77 @@ def connect_server(host, port, retries=20): #open the link to the IQ server, ret
     raise SystemExit(f'Could not reach IQ server at {host}:{port} - is triggered_IQRx.py running?')
 
 
-def send(sock, obj): #one command to the server as newline-terminated JSON
+def send(sock, obj):
     sock.sendall((json.dumps(obj) + '\n').encode())
     print(f'-> {json.dumps(obj)}')
 
 
-def run():
-    #pull config ---
-    with open(CONFIG_FILE, 'r') as config_file:
+def run(args):
+    with open(args.config, 'r') as config_file:
         config = yaml.safe_load(config_file)
     main = config['main']
     second = config['second-signal']
     srv = config['server']
 
-    test = config['test-name']
-    tx_mhz = config['tx-freq-mhz']
-    rx_mhz = config['rx-freq-mhz']
+    test = args.test or config['test-name']
+    tx1_list = [float(x) for x in args.tx1.split(',')] if args.tx1 else config['tx1-freqs-mhz']
+    tx2_mhz = args.tx2 if args.tx2 is not None else config['tx2-freq-mhz']
+    rx_mhz = args.rx if args.rx is not None else config['rx-freq-mhz']
+    mock = args.mock if args.mock is not None else config['mock-vsg']
+    waterfall = args.waterfall if args.waterfall is not None else config['waterfall']['enabled']
+    debug = config['debug-mode']
     powers = main['powers-db']
     wait_sec, tx_sec, recovery_sec = main['wait-sec'], main['tx-sec'], main['recovery-sec']
-    mock = config['mock-vsg']
-    debug = config['debug-mode']
+
+    tx2_msg = tx2_mhz if second['enabled'] else None
 
     out_dir = os.path.join(config['output']['dir'], test)
     os.makedirs(out_dir, exist_ok=True)
 
-    #connect the VSG (main signal) and, if enabled, a second VSG ---
     vsg = sh.connect_vsg(debug, mock)
     second_vsg = None
     if second['enabled']:
         second_vsg = vsg60_mock.VSG60Mock(debug=debug) if mock \
             else vsg60.VSG60(port=second['port'], debug=debug)
 
-    #connect the IQ server ---
     sock = connect_server(srv['host'], srv['port'])
     print(f'Connected to IQ server at {srv["host"]}:{srv["port"]}')
 
-    tx_rows = [TX_HEADER] #tx csv rows (one per tx bit)
+    tx_rows = [TX_HEADER]
 
     try:
-        #tell the server we are starting
-        send(sock, {'cmd': 'begin', 'test': test, 'tx_freq_mhz': tx_mhz, 'rx_freq_mhz': rx_mhz})
-
-        #second signal
         if second_vsg is not None:
-            second_vsg.set_freq(second['freq-mult'] * tx_mhz * 1e6)
+            second_vsg.set_freq(tx2_mhz * 1e6)
             second_vsg.set_power(second['power-db'])
             second_vsg.enable_rf()
-            print(f'  2nd signal ON at {second["freq-mult"] * tx_mhz} MHz')
+            print(f'  Tx2 constant ON at {tx2_mhz} MHz')
 
-        vsg.set_freq(tx_mhz * 1e6) #main signal freq (Hz)
-        vsg.disable_rf()
-
-        #wait time at the beginning
-        print(f'  wait {wait_sec} s')
-        time.sleep(wait_sec)
-
-        #for each power: transmit, then recovery
-        for power in powers:
-            vsg.set_power(power)
-            vsg.enable_rf()
-            t_start = dt.now()
-            send(sock, {'cmd': 'start_tx', 'power': power})
-            print(f'  TX {power} dB for {tx_sec} s')
-            time.sleep(tx_sec)
-
+        for tx1 in tx1_list:
+            send(sock, {'cmd': 'begin', 'test': test, 'tx1_freq_mhz': tx1,
+                        'tx2_freq_mhz': tx2_msg, 'rx_freq_mhz': rx_mhz, 'waterfall': waterfall})
+            vsg.set_freq(tx1 * 1e6)
             vsg.disable_rf()
-            t_end = dt.now()
-            send(sock, {'cmd': 'end_tx'})
-            tx_rows.append([power, tx_mhz, str(t_start), str(t_end),
-                            f'{(t_end - t_start).total_seconds():.2f}'])
+            print(f'Tx1 {tx1} MHz: wait {wait_sec} s')
+            time.sleep(wait_sec)
 
-            print(f'  recovery {recovery_sec} s')
-            time.sleep(recovery_sec)
+            for power in powers:
+                vsg.set_power(power)
+                vsg.enable_rf()
+                t_start = dt.now()
+                send(sock, {'cmd': 'start_tx', 'power': power})
+                print(f'  TX {power} dB for {tx_sec} s')
+                time.sleep(tx_sec)
 
-        send(sock, {'cmd': 'end'})
+                vsg.disable_rf()
+                t_end = dt.now()
+                send(sock, {'cmd': 'end_tx'})
+                tx_rows.append([tx1, (tx2_mhz if tx2_msg is not None else 'NoTx2'), power,
+                                str(t_start), str(t_end), f'{(t_end - t_start).total_seconds():.2f}'])
+                print(f'  recovery {recovery_sec} s')
+                time.sleep(recovery_sec)
+
+            send(sock, {'cmd': 'end'})
     finally:
-        #everything off + save the tx sheet
         vsg.disable_rf()
         if second_vsg is not None:
             second_vsg.disable_rf()
@@ -134,5 +111,23 @@ def run():
     print(f'Tx done. Tx log -> {os.path.join(out_dir, f"{test}_tx_log.csv")}')
 
 
+def parse_args():
+    ap = argparse.ArgumentParser(description='Tx transmit (Tx1 sweep + constant Tx2)')
+    ap.add_argument('--config', default='tx_transmit_config.yaml')
+    ap.add_argument('--test', help='test name')
+    ap.add_argument('--tx1', help='comma list of Tx1 freqs in MHz, e.g. 625,700,850')
+    ap.add_argument('--tx2', type=float, help='Tx2 constant freq in MHz')
+    ap.add_argument('--rx', type=float, help='Rx freq in MHz')
+    gm = ap.add_mutually_exclusive_group()
+    gm.add_argument('--mock', dest='mock', action='store_true', help='force mock VSG')
+    gm.add_argument('--no-mock', dest='mock', action='store_false', help='force real VSG')
+    ap.set_defaults(mock=None)
+    gw = ap.add_mutually_exclusive_group()
+    gw.add_argument('--waterfall', dest='waterfall', action='store_true')
+    gw.add_argument('--no-waterfall', dest='waterfall', action='store_false')
+    ap.set_defaults(waterfall=None)
+    return ap.parse_args()
+
+
 if __name__ == "__main__":
-    run()
+    run(parse_args())

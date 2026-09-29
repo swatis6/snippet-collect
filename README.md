@@ -3,7 +3,7 @@ Transmit &amp; IQ collection automation
 
 ## General Use
 
-pip install numpy pyvisa pyyaml keyboard matplotlib
+pip install numpy pyvisa pyyaml keyboard matplotlib tkinterdnd
 
 1. Set everything up in .yaml files
 2. Run "python triggered_IQRx_config.py" on terminal 1 (server)
@@ -82,6 +82,27 @@ python waterfall.py results/HWTest/625 --live
 python waterfall.py results/HWTest/625 --once --save wf625.png
 python waterfall.py results/HWTest/625/tx-2/625Tx1_1250Tx2_1250Rx_HWTest_4-*.iq --save one.png
 ```
+
+## `waterfall_dnd.py` (drag-and-drop post-processor)
+
+A post processor to to waterfall-plot saved `.iq` files.
+Unlike the live/folder waterfall above (one row per snippet), this one does the usual within-file plotting.
+
+- **1 file**  --> that file's own waterfall: **Time (ms) vs Frequency (MHz)**.
+- **2+ files** --> assembles it into **one** waterfall, files stacked in **filename order**
+  (your `_1, _2, ...` counter = capture order). I have added white boundary lines at the borders + a file name overlay but it's removable.
+
+Every render needs the xml available for that iq file and also auto-saves a PNG, either as <iqname>_waterfall.png` or `combined_waterfall.png` (combined goes in the same folder as the first file).
+
+### Options
+
+| Flag | Meaning |
+|---|---|
+| `--fft N` | FFT size per row (default 1024). Bigger = finer frequency, fewer rows |
+| `--overlap F` | window overlap 0..1 (default 0.5). More overlap = more rows |
+| `--no-labels` | hide the filename labels overlaid on the combined plot (boundary lines still there), default labeled |
+| `--save PATH` | save the PNG to PATH instead of the auto location |
+
 
 ## Output Organization
 

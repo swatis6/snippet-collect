@@ -19,9 +19,9 @@ second-signal: #Tx2 on a different antenna
   power-db: 0
   port: 5025 #SCPI port of the 2nd VSG (main VSG is on 5024)
 
-waterfall:
-  enabled: true #live waterfall per Tx1 freq but have matplotlib wherever yoou're running Rx script
-  #save: true #not yet a thing.
+waterfall: #LIVE??
+  enabled: false #live waterfall per Tx1 freq but have matplotlib wherever yoou're running Rx script
+  save: false #not yet a thing.
 
 server:
   host: '127.0.0.1' #IQ server location

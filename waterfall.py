@@ -71,6 +71,49 @@ def build_rows(iq_paths, nfft=1024):
     return np.array(rows), (f0, f1)
 
 
+def within_file_rows(iq_path, nfft=1024, overlap=0.5):
+    loaded = load_iq(iq_path)
+    if loaded is None:
+        return np.empty((0, nfft)), None
+    z, sr, center = loaded
+    step = max(1, int(nfft * (1.0 - overlap)))
+    win = np.hanning(nfft)
+    rows = []
+    for start in range(0, max(1, z.size - nfft + 1), step):
+        seg = z[start:start + nfft]
+        if seg.size < nfft:
+            break
+        X = np.fft.fftshift(np.fft.fft(seg * win)) / win.sum()
+        rows.append(10.0 * np.log10(np.abs(X) ** 2 + 1e-30))
+    if not rows:
+        rows.append(spectrum_dbm(z, nfft))
+    f0 = (center - sr / 2) / 1e6
+    f1 = (center + sr / 2) / 1e6
+    dur_ms = z.size / sr * 1e3
+    return np.array(rows), (f0, f1, dur_ms)
+
+
+def combined_within_rows(iq_paths, nfft=1024, overlap=0.5):
+    paths = sorted(iq_paths, key=os.path.basename)
+    blocks, boundaries, extent, centers, total = [], [], None, set(), 0
+    for p in paths:
+        data, ext = within_file_rows(p, nfft, overlap)
+        if not data.size:
+            continue
+        f0, f1, _dur = ext
+        extent = (f0, f1)
+        centers.add(round((f0 + f1) / 2, 3))
+        blocks.append(data)
+        total += data.shape[0]
+        boundaries.append((total, os.path.basename(p)))
+    if len(centers) > 1:
+        print(f'WARNING: files have different Rx centers {sorted(centers)} MHz - '
+              f'the frequency axis only matches the first; combined plot may be misleading')
+    if not blocks:
+        return np.empty((0, nfft)), None, []
+    return np.vstack(blocks), extent, boundaries
+
+
 def _iq_files(folder):
     files = glob.glob(os.path.join(folder, '**', '*.iq'), recursive=True)
     return sorted(files, key=lambda f: os.path.getmtime(f))

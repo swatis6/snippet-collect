@@ -30,13 +30,6 @@ python tx_transmit.py [--config FILE] [--test NAME]
 ```
 Anything omitted falls back to YAML.
 
-**Waterfall**
-```
-python waterfall.py <folder> --live  [--save PNG] [--fft 1024]
-python waterfall.py <folder> --once  [--save PNG]
-python waterfall.py a.iq b.iq ...     [--save PNG]
-```
-
 **Waterfall dnd**
 ```
 python waterfall_dnd.py                    # window; drag .iq files or a folder in

@@ -1,34 +1,43 @@
 ---
-#Test & transmit settings. Rx only has IQ capture things now.
-#File naming: [TestName]/[Tx1]/[state]/[Tx1]Tx1_[Tx2]Tx2_[Rx]Rx_[TestName]_[Snippet#]_[Spike Timestamp].iq/.xml
+# All test + IQ-capture settings live here. The Rx server just does what 'begin' tells it.
+test-name: 'HWTest' # folder name
 
-test-name: 'HWTest' #sent to Rx in 'begin' (folder/file naming)
+tx1-freqs-mhz: ['off', 625, 700, 850] # Tx1 sweep (inner loop). used 'off' for no Tx1 case.
+tx2-freq-mhz: 1250 # Tx2 constant second-signal freq (fixed)
+rx-freqs-mhz: [1250, 1750] # Rx sweep (outer loop) - one full Tx1 round per Rx freq
 
-tx1-freqs-mhz: [625, 700, 850] #Tx1 SWEEP w/ one full begin -> powers -> end p/ freq
-tx2-freq-mhz: 1250 #Tx2 constant second-signal freq. turn off below.
-rx-freq-mhz: 1250 #Rx freq where IQ is captured.)
-
-main: #wait, then for each power tx -> recovery
+main: # per Tx1: wait, then for each power [tx, recovery]
   powers-db: [0, 2, 4, 6]
-  wait-sec: 6 #Rx 'wait' state
-  tx-sec: 10 #Rx 'tx' state
-  recovery-sec: 8 #Rx 'recovery' state
+  wait-sec: 6 # Rx 'wait' state
+  tx-sec: 10 # Rx 'tx' state
+  recovery-sec: 8 # Rx 'recovery' state
 
-second-signal: #Tx2 on a different antenna
-  enabled: true #false gives "NoTx2" in filenames
+second-signal: # Tx2 on a different antenna, constant the whole run
+  enabled: true # false -> "NoTx2" in filenames, Tx2 off
   power-db: 0
-  port: 5025 #SCPI port of the 2nd VSG (main VSG is on 5024)
+  port: 5025 # SCPI port of the 2nd VSG (main VSG is on 5024)
 
-waterfall: #LIVE??
-  enabled: false #live waterfall per Tx1 freq but have matplotlib wherever yoou're running Rx script
-  save: false #not yet a thing.
+# IQ capture - sent to the Rx in 'begin' (Spike-style: sample rate, not decimation)
+iq:
+  sample-rate-hz: 40000000 # Signal Hound dropdown. snaps to nearest & warns
+  if-bw-mhz: 27 # IF bandwidth (clamped to the max for the chosen rate)
+  ref-lvl-dbm: -20 # Spike ScaleFactor = 10^(-ref/20)
+  # mode: 'snippet' = short grabs every interval-sec | 'continuous' = ONE file for the whole phase
+  # (continuous streams to disk until the phase ends; length-sec/interval-sec are ignored)
+  phases:
+    wait:     {mode: snippet, enabled: true, length-sec: 0.0005, interval-sec: 3}
+    tx:       {mode: snippet, enabled: true, length-sec: 0.005,  interval-sec: 1}
+    recovery: {mode: continuous, enabled: true, length-sec: 0.0005, interval-sec: 2}
+
+waterfall:
+  enabled: true # Rx pops a live waterfall per Tx1 (needs matplotlib on the Rx machine)
 
 server:
-  host: '127.0.0.1' #IQ server location
+  host: '127.0.0.1' # IQ server location, 0.0.0.0 = allow other machines, 126.0.0.1 = localhost
   port: 5050
 
 output:
-  dir: 'results' #tx log -> results/<test>/<test>_tx_log.csv
+  dir: 'results' # results root for EVERYTHING (snippets + both csvs) now. sent to the Rx in 'begin'
 
-mock-vsg: true #true = no hardware (VSGs mocked). --mock / --no-mock
+mock-vsg: true # true = no hardware. override with --mock / --no-mock
 debug-mode: false

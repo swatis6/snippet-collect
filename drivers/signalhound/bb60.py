@@ -203,6 +203,19 @@ class BB60:
         self._write_xml(base, center_hz, sample_rate, got, epoch_ns, preview)
         return got, sample_rate
 
+#ADDED FOR MULTIPLE RX FREQS
+    def reconfigure(self, ref_level=None, decimation=None, bandwidth_hz=None):
+        if ref_level is not None:
+            self.ref_level = float(ref_level)
+            self.scale_factor = 10 ** (-self.ref_level / 20.0)
+            self._check(self._lib.bbConfigureRefLevel(self.handle, c_double(self.ref_level)), 'ref level')
+            self._check(self._lib.bbConfigureGainAtten(self.handle, BB_AUTO_GAIN, BB_AUTO_ATTEN), 'gain/atten')
+        if decimation is not None:
+            self._decim = int(decimation)
+        if bandwidth_hz is not None:
+            self._bw = float(bandwidth_hz)
+#END
+
     def snapshot(self, center_hz, seconds):
         """Capture a short IQ snippet. Returns (complex64 iq, sample_rate_hz, power_dbm)."""
         lib = self._lib
@@ -281,6 +294,17 @@ class BB60Mock:
         preview = self._preview(amp) if write_preview else None
         self._write_xml(base, center_hz, sample_rate, count, epoch_ns, preview)
         return count, sample_rate
+
+#ADDED FOR MULTIPLE RX FREQS
+    def reconfigure(self, ref_level=None, decimation=None, bandwidth_hz=None):
+        if ref_level is not None:
+            self.ref_level = float(ref_level)
+            self.scale_factor = 10 ** (-self.ref_level / 20.0)
+        if decimation is not None:
+            self._decim = int(decimation)
+        if bandwidth_hz is not None:
+            self._bw = float(bandwidth_hz)
+#END
 
     def snapshot(self, center_hz, seconds):
         # simulated power: RF high in [1,4) & [6,8) s, an interference spike near 7 s

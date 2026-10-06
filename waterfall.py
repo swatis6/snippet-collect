@@ -128,7 +128,7 @@ def render_static(iq_paths, nfft=1024, save=None, title=None):
     fig, ax = plt.subplots(figsize=(8, 5))
     if data.size:
         ax.imshow(data, aspect='auto', origin='lower',
-                  extent=[extent[0], extent[1], 0, data.shape[0]], cmap='viridis')
+                  extent=[extent[0], extent[1], 0, data.shape[0]], cmap='turbo')
     ax.set_xlabel('Frequency (MHz)')
     ax.set_ylabel('Snippet #')
     ax.set_title(title or 'IQ Waterfall')
@@ -165,7 +165,7 @@ def run_live(folder, nfft=1024, title=None, poll=0.5, save=None):
             data = np.array(rows)
             if img is None:
                 img = ax.imshow(data, aspect='auto', origin='lower',
-                                extent=[extent[0], extent[1], 0, data.shape[0]], cmap='viridis')
+                                extent=[extent[0], extent[1], 0, data.shape[0]], cmap='turbo')
                 fig.colorbar(img, ax=ax, label='dBm')
             else:
                 img.set_data(data)

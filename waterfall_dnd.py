@@ -1,11 +1,10 @@
-
 import argparse
 import os
 import sys
- 
+
 from waterfall import within_file_rows, combined_within_rows, _iq_files
- 
- 
+
+
 def gather(paths):
     files = []
     for p in paths:
@@ -15,8 +14,8 @@ def gather(paths):
         elif p.lower().endswith('.iq') and os.path.exists(p):
             files.append(p)
     return files
- 
- 
+
+
 def _parse_drop(data):
     out, buf, i = [], '', 0
     while i < len(data):
@@ -36,8 +35,8 @@ def _parse_drop(data):
     if buf:
         out.append(buf)
     return out
- 
- 
+
+
 def draw(ax, files, nfft, overlap, labels=True):
     files = sorted(files, key=os.path.basename)
     ax.clear()
@@ -48,22 +47,22 @@ def draw(ax, files, nfft, overlap, labels=True):
         if data.size:
             f0, f1, dur_ms = ext
             ax.imshow(data, aspect='auto', origin='lower',
-                      extent=[f0, f1, 0, dur_ms], cmap='viridis')
+                      extent=[f0, f1, 0, dur_ms], cmap='turbo')
         title = f'{os.path.basename(files[0])}  ({data.shape[0]} rows)'
         ax.set_title(title)
         png = os.path.splitext(files[0])[0] + '_waterfall.png'
         return title, png
- 
+
     data, ext, boundaries = combined_within_rows(files, nfft, overlap)
-    ax.set_ylabel('Row (files stacked, filename order)')
+    ax.set_ylabel('Sample #')
     if data.size:
         f0, f1 = ext
         ax.imshow(data, aspect='auto', origin='lower',
-                  extent=[f0, f1, 0, data.shape[0]], cmap='viridis')
+                  extent=[f0, f1, 0, data.shape[0]], cmap='turbo')
         prev = 0
         for end, name in boundaries:
             if end != data.shape[0]:
-                ax.axhline(end, color='w', lw=0.6, alpha=0.6) 
+                ax.axhline(end, color='w', lw=0.6, alpha=0.6)
             if labels:
                 ax.text(f0, (prev + end) / 2, ' ' + name, color='w', fontsize=7,
                         va='center', ha='left')
@@ -72,8 +71,8 @@ def draw(ax, files, nfft, overlap, labels=True):
     ax.set_title(title)
     png = os.path.join(os.path.dirname(files[0]), 'combined_waterfall.png')
     return title, png
- 
- 
+
+
 def _autosave(files, nfft, overlap, labels=True):
     from matplotlib.figure import Figure
     from matplotlib.backends.backend_agg import FigureCanvasAgg
@@ -88,8 +87,8 @@ def _autosave(files, nfft, overlap, labels=True):
     except Exception as e:
         print(f'save failed: {e}')
     return png
- 
- 
+
+
 def run_gui(nfft=1024, overlap=0.5, labels=True):
     import matplotlib
     matplotlib.use('TkAgg')
@@ -97,7 +96,7 @@ def run_gui(nfft=1024, overlap=0.5, labels=True):
     from tkinter import filedialog
     from matplotlib.figure import Figure
     from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
- 
+
     try:
         from tkinterdnd2 import TkinterDnD, DND_FILES
         root = TkinterDnD.Tk()
@@ -105,7 +104,7 @@ def run_gui(nfft=1024, overlap=0.5, labels=True):
     except Exception:
         root = tk.Tk()
         has_dnd = False
- 
+
     root.title('IQ Waterfall - drag & drop')
     fig = Figure(figsize=(8, 6))
     ax = fig.add_subplot(111)
@@ -113,10 +112,10 @@ def run_gui(nfft=1024, overlap=0.5, labels=True):
     canvas = FigureCanvasTkAgg(fig, master=root)
     canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
     NavigationToolbar2Tk(canvas, root)
- 
+
     show_labels = tk.BooleanVar(value=labels)
     last = {'files': []}
- 
+
     def render(files):
         if files:
             last['files'] = files
@@ -126,22 +125,22 @@ def run_gui(nfft=1024, overlap=0.5, labels=True):
         fig.tight_layout()
         canvas.draw()
         _autosave(last['files'], nfft, overlap, show_labels.get())
- 
+
     def add_files():
         render(gather(list(filedialog.askopenfilenames(filetypes=[('IQ files', '*.iq')]))))
- 
+
     def add_folder():
         d = filedialog.askdirectory()
         render(gather([d]) if d else [])
- 
+
     def save_png():
         p = filedialog.asksaveasfilename(defaultextension='.png', filetypes=[('PNG', '*.png')])
         if p:
             fig.savefig(p, dpi=120)
- 
+
     def on_drop(event):
         render(gather(_parse_drop(event.data)))
- 
+
     bar = tk.Frame(root)
     bar.pack(side='bottom', fill='x')
     tk.Button(bar, text='Add files...', command=add_files).pack(side='left')
@@ -151,18 +150,18 @@ def run_gui(nfft=1024, overlap=0.5, labels=True):
                    command=lambda: render(None)).pack(side='left')
     tk.Label(bar, text=('drop .iq files or a folder onto the plot' if has_dnd
                         else 'tkinterdnd2 not installed - use Add files / Add folder')).pack(side='right')
- 
+
     if has_dnd:
         w = canvas.get_tk_widget()
         w.drop_target_register(DND_FILES)
         w.dnd_bind('<<Drop>>', on_drop)
- 
+
     root.mainloop()
- 
- 
+
+
 def main():
     ap = argparse.ArgumentParser(description='Drag-and-drop within-file IQ waterfall')
-    ap.add_argument('paths', nargs='*', help='.iq files or a folder')
+    ap.add_argument('paths', nargs='*', help='.iq files or a folder (omit to open the window)')
     ap.add_argument('--fft', type=int, default=1024, help='FFT size per row (default 1024)')
     ap.add_argument('--overlap', type=float, default=0.5, help='window overlap 0..1 (default 0.5)')
     ap.add_argument('--save', help='save combined PNG to this path (else auto next to files)')
@@ -170,11 +169,11 @@ def main():
                     help='hide the filename labels on the stacked plot')
     ap.set_defaults(labels=True)
     args = ap.parse_args()
- 
+
     if not args.paths:
         run_gui(args.fft, args.overlap, args.labels)
         return
- 
+
     files = gather(args.paths)
     if not files:
         print('no .iq files found in:', args.paths)
@@ -191,8 +190,7 @@ def main():
     except Exception as e:
         print(f'save failed: {e}')
     plt.show()
- 
- 
+
+
 if __name__ == '__main__':
     main()
- 

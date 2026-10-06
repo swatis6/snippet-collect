@@ -12,7 +12,8 @@ from util import signalhound as sh
 from drivers.signalhound import vsg60, vsg60_mock
 
 
-TX_HEADER = ['Tx1 Freq (MHz)', 'Tx2 Freq (MHz)', 'Power (dB)', 'Start Time', 'End Time', 'Duration (s)']
+TX_HEADER = ['Rx Freq (MHz)', 'Tx1 Freq (MHz)', 'Tx2 Freq (MHz)', 'Power (dB)',
+             'Start Time', 'End Time', 'Duration (s)']
 
 
 def connect_server(host, port, retries=20):
@@ -41,18 +42,22 @@ def run(args):
     srv = config['server']
 
     test = args.test or config['test-name']
+    _now = dt.now()
+    test = test + _now.strftime('-%m-%d-%y-%Hh%Mm%Ss') + f'{_now.microsecond // 1000:03d}'
     tx1_list = [float(x) for x in args.tx1.split(',')] if args.tx1 else config['tx1-freqs-mhz']
+    rx_list = [float(x) for x in args.rx.split(',')] if args.rx else config['rx-freqs-mhz']
     tx2_mhz = args.tx2 if args.tx2 is not None else config['tx2-freq-mhz']
-    rx_mhz = args.rx if args.rx is not None else config['rx-freq-mhz']
     mock = args.mock if args.mock is not None else config['mock-vsg']
     waterfall = args.waterfall if args.waterfall is not None else config['waterfall']['enabled']
     debug = config['debug-mode']
     powers = main['powers-db']
     wait_sec, tx_sec, recovery_sec = main['wait-sec'], main['tx-sec'], main['recovery-sec']
+    iq_cfg = config['iq']
 
     tx2_msg = tx2_mhz if second['enabled'] else None
 
-    out_dir = os.path.join(config['output']['dir'], test)
+    out_base = config['output']['dir']
+    out_dir = os.path.join(out_base, test)
     os.makedirs(out_dir, exist_ok=True)
 
     vsg = sh.connect_vsg(debug, mock)
@@ -73,31 +78,37 @@ def run(args):
             second_vsg.enable_rf()
             print(f'  Tx2 constant ON at {tx2_mhz} MHz')
 
-        for tx1 in tx1_list:
-            send(sock, {'cmd': 'begin', 'test': test, 'tx1_freq_mhz': tx1,
-                        'tx2_freq_mhz': tx2_msg, 'rx_freq_mhz': rx_mhz, 'waterfall': waterfall})
-            vsg.set_freq(tx1 * 1e6)
-            vsg.disable_rf()
-            print(f'Tx1 {tx1} MHz: wait {wait_sec} s')
-            time.sleep(wait_sec)
-
-            for power in powers:
-                vsg.set_power(power)
-                vsg.enable_rf()
-                t_start = dt.now()
-                send(sock, {'cmd': 'start_tx', 'power': power})
-                print(f'  TX {power} dB for {tx_sec} s')
-                time.sleep(tx_sec)
-
+        for rx in rx_list:
+            for tx1 in tx1_list:
+                tx1_off = isinstance(tx1, str) and tx1.lower() in ('off', 'no', 'none') or tx1 is None
+                tx1_msg = 'off' if tx1_off else tx1
+                send(sock, {'cmd': 'begin', 'test': test, 'tx1_freq_mhz': tx1_msg,
+                            'tx2_freq_mhz': tx2_msg, 'rx_freq_mhz': rx,
+                            'waterfall': waterfall, 'out_dir': out_base, 'iq': iq_cfg})
+                if not tx1_off:
+                    vsg.set_freq(tx1 * 1e6)
                 vsg.disable_rf()
-                t_end = dt.now()
-                send(sock, {'cmd': 'end_tx'})
-                tx_rows.append([tx1, (tx2_mhz if tx2_msg is not None else 'NoTx2'), power,
-                                str(t_start), str(t_end), f'{(t_end - t_start).total_seconds():.2f}'])
-                print(f'  recovery {recovery_sec} s')
-                time.sleep(recovery_sec)
+                print(f'Rx {rx} / Tx1 {"OFF (baseline)" if tx1_off else f"{tx1} MHz"}: wait {wait_sec} s')
+                time.sleep(wait_sec)
 
-            send(sock, {'cmd': 'end'})
+                for power in powers:
+                    if not tx1_off:
+                        vsg.set_power(power)
+                        vsg.enable_rf()
+                    t_start = dt.now()
+                    send(sock, {'cmd': 'start_tx', 'power': power})
+                    print(f'  {"BASELINE (RF off)" if tx1_off else f"TX {power} dB"} for {tx_sec} s')
+                    time.sleep(tx_sec)
+
+                    vsg.disable_rf()
+                    t_end = dt.now()
+                    send(sock, {'cmd': 'end_tx'})
+                    tx_rows.append([rx, tx1_msg, (tx2_mhz if tx2_msg is not None else 'NoTx2'), power,
+                                    str(t_start), str(t_end), f'{(t_end - t_start).total_seconds():.2f}'])
+                    print(f'  recovery {recovery_sec} s')
+                    time.sleep(recovery_sec)
+
+                send(sock, {'cmd': 'end'})
     finally:
         vsg.disable_rf()
         if second_vsg is not None:
@@ -112,15 +123,15 @@ def run(args):
 
 
 def parse_args():
-    ap = argparse.ArgumentParser(description='Tx transmit (Tx1 sweep + constant Tx2)')
+    ap = argparse.ArgumentParser(description='Tx transmit (Rx sweep x Tx1 sweep + constant Tx2)')
     ap.add_argument('--config', default='tx_transmit_config.yaml')
-    ap.add_argument('--test', help='test name')
-    ap.add_argument('--tx1', help='comma list of Tx1 freqs in MHz, e.g. 625,700,850')
+    ap.add_argument('--test')
+    ap.add_argument('--tx1', help='comma list of Tx1 freqs in MHz')
     ap.add_argument('--tx2', type=float, help='Tx2 constant freq in MHz')
-    ap.add_argument('--rx', type=float, help='Rx freq in MHz')
+    ap.add_argument('--rx', help='comma list of Rx freqs in MHz')
     gm = ap.add_mutually_exclusive_group()
-    gm.add_argument('--mock', dest='mock', action='store_true', help='force mock VSG')
-    gm.add_argument('--no-mock', dest='mock', action='store_false', help='force real VSG')
+    gm.add_argument('--mock', dest='mock', action='store_true')
+    gm.add_argument('--no-mock', dest='mock', action='store_false')
     ap.set_defaults(mock=None)
     gw = ap.add_mutually_exclusive_group()
     gw.add_argument('--waterfall', dest='waterfall', action='store_true')

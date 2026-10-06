@@ -1,26 +1,18 @@
 ---
-# ONLY IQ-capture settings
+# Rx server holds ONLY hardware setup.
+# Every capture setting (sample rate, bandwidth, ref level, snippet timing) and all test
+# info arrive from the Tx in the 'begin' message so you have to set those in tx_transmit_config.yaml.
 
 rx:
-  serial: 24248018 #BB60D serial number
-  ref-lvl-dbm: -20 #spike ScaleFactor
-  decimation: 1
-  if-bandwidth-hz: 27000000
-  bb-api-lib: null #path to bb_api.dll / libbb_api.so, or null to auto-find
-
-# per-state snippet timings (enable = capture or not?, length-sec = how much I/Q?, interval-sec = gap between them)
-# smallest length is 25 ns at decimation 1
-snippet:
-  wait:     {enabled: true, length-sec: 0.0005, interval-sec: 3}
-  tx:       {enabled: true, length-sec: 0.005,  interval-sec: 1}
-  recovery: {enabled: true, length-sec: 0.0005, interval-sec: 2}
+  serial: 24248018 # BB60D serial number (0 = first BB60 found)
+  bb-api-lib: null # path to bb_api.dll / libbb_api.so, or null to auto-find
 
 server:
-  host: '127.0.0.1' #127.0.0.1 = localhost, 0.0.0.0 = other machines
+  host: '127.0.0.1' # 127.0.0.1 = localhost, 0.0.0.0 = allow other machines
   port: 5050
 
 output:
-  dir: 'results' #snippets -> results/<test>/<tx1>/<state>/, csv -> results/<test>/
+  dir: 'results' # fallback only - the Tx sends the real results dir in 'begin'
 
-mock: true #true = simulated BB60 (no hardware). --mock / --no-mock
+mock: true # true = simulated BB60 (no hardware). override with --mock / --no-mock
 debug-mode: false
